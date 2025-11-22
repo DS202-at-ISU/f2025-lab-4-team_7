@@ -1,0 +1,105 @@
+---
+title: "Progress Report"
+author: "David Wang"
+date: "2025-11-19"
+output: html_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(rvest)
+library(tidyverse)
+library(readr)
+library(stringi)
+url <- "https://www.baseball-reference.com/awards/hof_2025.shtml"
+html <- read_html(url)
+tables <- html_table(html)
+
+#lahman data
+library(Lahman)
+head(HallOfFame, 3)
+
+#original data
+original_hallOfFame <- tables[[1]]
+# head(tables[[1]])
+
+#overwrite column names with actual column names
+data <- tables[[1]]
+actual_col_names <- data[1, ]
+colnames(data) <- actual_col_names
+data <- data[-1, ]
+head(data, 3)
+
+# str(data)
+
+
+#start with cleaning and converting
+colnames(data) <- make.unique(colnames(data))
+
+hof <- data
+
+#convert votes to numeric
+hof$Votes <- as.numeric(hof$Votes)
+
+
+#compute ballots
+ballots <- max(hof$Votes, na.rm = TRUE)
+
+hof <- hof |> 
+  mutate(
+    yearID = 2025,
+    votedBy = "BBWAA",
+    ballots = ballots,
+    needed = floor(0.75 * ballots),
+    votes = Votes,
+    inducted = if_else(votes >= needed, "Y", "N"),
+    category = "Player",
+    needed_note = NA
+  )
+
+#make matching field
+People2 <- People |> 
+  mutate(
+    Player = paste(
+      str_replace(nameFirst, "\\. ", "\\."),
+      nameLast
+    )
+  )
+
+
+
+#clean scraped names
+hof <- hof |>
+  mutate(
+    Name = gsub("^X-", "", Name),              # remove X-
+    Name = stri_trans_general(Name, "Latin-ASCII"),  # remove accents
+    Name = str_trim(Name)                     # remove whitespace
+  )
+
+#clean Lahman names
+People2 <- People2 |> 
+  mutate(
+    Player = stri_trans_general(Player, "Latin-ASCII"),
+    Player = str_trim(Player)
+  )
+
+
+hof <- hof |>
+  left_join(People2 |> select(Player, playerID),
+            by = join_by(Name == Player))
+
+
+hof_2025_cleaned <- hof |> 
+  select(all_of(colnames(HallOfFame)))
+
+#final cleaned data in Lahman dataset format
+head(hof_2025_cleaned)
+
+write.csv(hof_2025_cleaned, "DavidWangHallOfFame_2025.csv", row.names = FALSE)
+
+```
+
