@@ -1,0 +1,115 @@
+---
+title: "progress-report-nate-riedl"
+author: Nate Riedl
+date: '2025-11-19'
+output: html_document
+---
+
+```{r}
+hof <- Lahman::HallOfFame
+people <- Lahman::People
+
+library(rvest)
+library(tidyverse)
+library(upstartr)
+
+url <- 'https://www.baseball-reference.com/awards/hof_2025.shtml'
+
+scraper <- function(url, css_selector = "#hof_BBWAA") {
+  html <- read_html(url)
+  data <- html |> 
+    html_element(css_selector) |> 
+    html_table()
+  colnames(data_table) <- data_table[1, ]
+  data <- data_table[-1, ]
+  return(data_table)
+}
+
+hof25 <- scraper(url)
+
+str(hof25)
+hof25$Votes <-  as.numeric(hof25$Votes)
+
+hof25 <- hof25 |> select(Name, Votes)
+
+hof25 <- hof25 |> 
+  mutate(
+    yearID = 2025,
+    votedBy = 'BBWAA',
+    ballots = 394,
+    needed = 296,
+    votes = Votes,
+    inducted = if_else(votes >= needed, "Y", "N"),
+    category = 'player',
+    needed_note = NA,
+    Name = unaccent(Name)
+  )
+
+hof25$Name <- gsub('X-', '', hof25$Name)
+                   
+people <- people |> 
+  mutate(
+    Name = paste(
+      str_replace(nameFirst, "\\. ", "\\."), 
+      nameLast)
+  )
+
+hof25 |> 
+  anti_join(people |> select(Name, playerID),
+            by = 'Name')
+
+hof25_clean <- hof25 |> 
+  left_join(people |> select(Name, playerID), 
+            by = 'Name')
+hof25_clean <- hof25_clean[c('playerID', 'yearID', 'votedBy', 'ballots', 'needed', 'votes', 'inducted', 'category', 'needed_note')] |> 
+  arrange(playerID)
+
+write.csv(hof25_clean, file="hof_25.csv", row.names = FALSE)
+```
+
+
+```{r}
+BBWAA_csv <- function(URL, year, ballots_total, ballots_needed, css_selector = "#hof_BBWAA") {
+  html <- read_html(url)
+  data <- html |> 
+    html_element(css_selector) |> 
+    html_table()
+  colnames(data) <- data[1, ]
+  data <- data[-1, ]
+  data <- data |> select(Name, Votes)
+  data$Votes <- as.numeric(data$Votes)
+  data <- data |> 
+    mutate(
+      yearID = year,
+      votedBy = 'BBWAA',
+      ballots = ballots_total,
+      needed = ballots_needed,
+      votes = Votes,
+      inducted = if_else(votes >= needed, "Y", "N"),
+      category = 'player',
+      needed_note = NA,
+      Name = unaccent(Name)
+    )
+  data$Name <- gsub('X-', '', hof25$Name)
+  people <- Lahman::People
+  people <- people |> 
+    mutate(
+      Name = paste(
+        str_replace(nameFirst, "\\. ", "\\."), 
+        nameLast)
+    )
+  data <- data |> 
+    left_join(people |> select(Name, playerID), 
+              by = 'Name')
+  data <- 
+    data[c('playerID', 'yearID', 'votedBy', 'ballots', 'needed', 'votes', 'inducted', 'category', 'needed_note')] |> 
+    arrange(playerID)
+  return(data)
+}
+```
+
+
+```{r}
+BBWAA_csv(url, 2025, 394, 296)
+```
+

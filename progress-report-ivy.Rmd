@@ -1,0 +1,73 @@
+---
+title: "progress-report-ivy"
+author: "Ivy Zi Yi Chu"
+date: "2025-11-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("Lahman")
+library(rvest)
+library(Lahman)
+head(HallOfFame, 3)
+```
+```{r}
+url <- "https://www.baseball-reference.com/awards/hof_2025.shtml"
+html <- read_html(url)
+tables <- html_table(html)
+
+head(tables[[1]], 3)
+
+data <- tables[[1]]
+actual_col_names <- data[1, ]
+colnames(data) <- actual_col_names
+data <- data[-1, ]
+head(data, 3)
+
+hof_25 <- data |>
+  select(
+    Player = Name,
+    Votes
+  )
+
+hof_25 <- hof_25 |>
+  mutate(
+    votes = as.numeric(Votes),
+    yearID = 2025,
+    votedBy = "BBWAA",
+    ballots = 394,       
+    needed = 296,        
+    inducted = if_else(votes >= needed, "Y", "N"),
+    category = "player",
+    needed_note = NA
+  )
+
+People2 <- People |>
+  mutate(
+    Player = paste(
+      str_replace(nameFirst, "\\. ", "\\."),
+      nameLast
+    )
+  ) |>
+  select(Player, playerID)
+
+hof_25 |>
+  anti_join(People2, by = "Player")
+
+hof_25 <- hof_25 |>
+  left_join(People2, by = "Player")
+
+hof_25_cleaned <- hof_25 |>
+  select(colnames(HallOfFame))
+
+View(hof_25_cleaned)
+head(hof_25_cleaned)
+
+write.csv(hof_25_cleaned, file="Lab_4.csv", row.names = FALSE)
+
+```
+
